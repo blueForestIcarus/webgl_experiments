@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<title>three.js webgl - geometry - cube</title>
+		<meta charset="utf-8">
+		<style>
+			body {
+				margin: 0px;
+				background-color: #000000;
+				overflow: hidden;
+                    
+			}
+		</style>
+	</head>
+	<body>
+
+		<script src="/lib/three.min.js"></script>
+		<script src="/lib/js/libs/stats.min.js"></script>
+		<script src="/lib/js/controls/OrbitControls.js"></script>
+
+
+		<script>
+            //renderer
+			var camera, scene, renderer, stats;
+            var cameraControls;
+
+			
+			// scene size
+			var WIDTH = window.innerWidth;
+			var HEIGHT = window.innerHeight;
+
+			// camera
+			var VIEW_ANGLE = 45;
+			var ASPECT = WIDTH / HEIGHT;
+			var NEAR = 1;
+			var FAR = 2000;
+
+            var mesh;
+			
+			init();
+			animate();
+
+            function init(){
+                //setup three.js
+                setup();
+
+                //create the scene
+
+				var material = new THREE.MeshLambertMaterial({
+                    color: 0xffffff,
+                    shading: THREE.FlatShading, 
+                    vertexColors: THREE.VertexColors,
+                    wireframeLinewidth: 2
+                });
+
+                material.side = THREE.DoubleSide;
+
+
+                for(var d = 0; d < 2 ; d++){
+                    for(var x = 0; x <2 ; x++){
+                        var geometry = makeTerrain(101, 10);
+				        mesh = new THREE.Mesh(geometry, material);
+                        mesh.doubleSided = true;
+                        mesh.position.x = -1000*x;
+                        mesh.position.z = -1000*d;
+                        scene.add(mesh);
+                    }
+                }
+
+                //add light
+	            var light = new THREE.DirectionalLight( 0x404040, 2);
+	            light.position.set( 0.75, 0.75, 1.0 ).normalize();
+	            scene.add( light );
+
+	            var light = new THREE.DirectionalLight( 0x404040, .25);
+	            light.position.set( -0.75, 0.75, -1.0 ).normalize();
+	            scene.add( light );
+
+                var light = new THREE.AmbientLight( 0x090909 );
+                scene.add( light );  
+
+                //add key shortcut for wireframe
+                document.addEventListener('keydown', function(event) {
+                    if(event.keyCode == 67) {
+                        mesh.material.wireframe = !mesh.material.wireframe;
+                        mesh.material.emissive.setHex(mesh.material.wireframe ? 0xffffff : 0x000000);
+                        mesh.material.needsUpdate = true;
+                    }
+                });   
+            }
+
+            //creates a grid of vertices with (0,0,0) at the top left corner
+            //grid is <width> tiles by <depth> tiles with each tile had a depth/width of <size>
+            //triangles are created in each grid space with the diagonal going from bottom right to top left
+            function createGrid(depth, width, size){
+                var geometry = new THREE.Geometry();
+
+                for(var d = 0; d < depth ; d++){
+                    for(var x = 0; x < width ; x++){
+                        geometry.vertices.push(new THREE.Vector3(x*size,0,d*size));
+                    }
+                }
+
+                for(var d = 0; d < depth - 1 ; d++){
+                    for(var x = 0; x < width - 1 ; x++){
+                        geometry.faces.push(new THREE.Face3((d+1)*width + x, d*width + x, d*width + x + 1));
+                    }
+                }
+
+                for(var d = depth - 1; d > 0 ; d--){
+                    for(var x = width - 1; x > 0 ; x--){
+                        geometry.faces.push(new THREE.Face3((d-1)*width + x, d*width + x, d*width + x - 1));
+                    }
+                }
+                
+                return geometry;
+
+            }
+
+            function makeTerrain(width,size){
+                 var geometry = createGrid(width,width,size);
+
+                geometry.vertices.forEach(function (v, i){
+                    if(i%width!=0 && i%width!=width-1 && Math.floor(i/width)!=0 && Math.floor(i/width)!=width-1){
+                        v.y += Math.floor(Math.random()*20 -10);
+                    }
+                });
+
+                var rK1 = 60;
+                var rK2 = 60;
+                var rK12 = 100;
+                var rK3 = 25;
+
+                geometry.vertices.forEach(function (v, i){
+                    //rK1 += Math.random()-.5;
+                    //rK2 += Math.random()-.5;
+                    //rK3 += (Math.random()-Math.random())/2;
+
+                    if(i%width!=0 && i%width!=width-1 && Math.floor(i/width)!=0 && Math.floor(i/width)!=width-1){
+                        v.y += Math.sin(v.z/rK1)*rK3;
+                        v.y += Math.sin(v.x/rK2)*rK3;
+                        v.y += Math.sin((v.x+v.z)/rK12)*35;
+                    }else{
+                        //v.y = Math.sin(v.z/50)*25;
+                        //v.y = Math.sin(v.x/60)*25;
+                    }
+                });
+
+                geometry.vertices.forEach(function (v, i){
+                    if(i%width!=0 && i%width!=width-1 && Math.floor(i/width)!=0 && Math.floor(i/width)!=width-1){
+                        v.y = (v.y + geometry.vertices[i-1].y + geometry.vertices[i+1].y + geometry.vertices[i-width].y + geometry.vertices[i+width].y)/5;
+                    }
+                });
+
+                geometry.computeFaceNormals();
+                geometry.computeVertexNormals();
+
+                return geometry;
+            }
+
+			function setup() {
+                //set up fps monitor
+				stats = new Stats();
+				stats.domElement.style.position = 'absolute';
+				stats.domElement.style.top = '0px';
+				document.body.appendChild( stats.domElement );
+
+                //set up the renderer
+				renderer = new THREE.WebGLRenderer();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				document.body.appendChild( renderer.domElement );
+
+				//set up the camera (view)
+				camera = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR, FAR);
+				camera.position.set( 0, 20, 100 );
+
+				cameraControls = new THREE.OrbitControls(camera, renderer.domElement);
+				cameraControls.target.set( 0, 20, 0);
+				cameraControls.maxDistance =1000;
+				cameraControls.minDistance = 10;
+                cameraControls.keyPanSpeed = 100;
+				cameraControls.update();
+
+                //create the scene
+				scene = new THREE.Scene();
+
+                //handle window resize
+				window.addEventListener( 'resize', onWindowResize, false );
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+			}
+
+			function animate() {
+				requestAnimationFrame( animate );
+                
+                frame();
+
+				cameraControls.update();
+
+				renderer.render( scene, camera );
+				stats.update();
+			}
+
+            function frame(){
+                //TODO place frame commands here
+            }
+
+		</script><canvas width="1680" height="925" style="width: 1680px; height: 925px;"></canvas>
+
+	
+
+
+</body></html>

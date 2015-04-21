@@ -1,0 +1,386 @@
+<!doctype html>
+<html>
+	<head>
+		<title>Rendering snow with shaders tutorial / 10</title>
+		<style>
+            * {
+	            margin: 0;
+	            padding: 0;
+            }
+
+            body {
+	            background: #000;
+	            overflow: hidden;
+	            color: #fff;
+            }
+
+            #header {
+	            z-index: 10;
+	            position: absolute;
+	            top: 0;
+	            left: 0;
+	            width: 50%;
+	            text-align: center;
+	            color: #fff;
+	            background: rgba( 255, 255, 255, 0.5 );
+	            padding: 5px 0;
+	            text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.85);
+	            font-family: Courier, 'Courier New', mono, sans;
+	            font-weight: bold;
+            }
+	            #header a {
+		            color: #ff0;
+	            }
+
+            canvas {
+	            z-index: 0;
+	            position: absolute;
+	            top: 0;
+	            left: 0;
+            }
+
+            a {
+	            color: #00f;
+            }
+        </style>
+		<script type="text/javascript" src="/lib/three.min.js"></script>
+		<script type="text/javascript" src="/lib/js/libs/dat.gui.min.js"></script>
+		<script src="/lib/js/Mirror.js"></script>
+		<script src="/lib/js/controls/OrbitControls.js"></script>
+		<script src="/lib/js/libs/stats.min.js"></script>
+		<script>
+            //adopted from various examples from three.js and a snow tutorial at http://soledadpenades.com/articles/three-js-tutorials/rendering-snow-with-shaders/7/
+
+            var camera, scene, renderer;
+            var mesh;
+            var stats;
+
+            var verticalMirror, groundMirror;
+
+            // scene size
+            var WIDTH = window.innerWidth;
+            var HEIGHT = window.innerHeight;
+
+            // camera
+            var VIEW_ANGLE = 45;
+            var ASPECT = WIDTH / HEIGHT;
+            var NEAR = 1;
+            var FAR = 500;
+
+            var time = 0;
+            var speed = .01;
+
+            var renderer,
+	            scene,
+	            particleSystemHeight = 500,
+	            clock,
+	            controls,
+	            parameters,
+	            onParametersUpdate,
+	            texture;
+
+            window.onload = function() {
+                init();
+                animate();
+            }
+
+            function init() {
+
+                stats = new Stats();
+	            stats.domElement.style.position = 'absolute';
+	            stats.domElement.style.top = '0px';
+	            document.body.appendChild( stats.domElement );
+
+	            renderer = new THREE.WebGLRenderer();
+	            renderer.setSize( window.innerWidth, window.innerHeight );
+	            document.body.appendChild( renderer.domElement );
+
+	            // camera
+	            camera = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR, FAR);
+	            camera.position.set( 0, 75, 160 );
+
+	            cameraControls = new THREE.OrbitControls(camera, renderer.domElement);
+	            cameraControls.target.set( 0, 0, 0);
+	            cameraControls.maxDistance = 400;
+	            cameraControls.minDistance = 10;
+	            cameraControls.update();
+
+	            scene = new THREE.Scene();
+
+	            //var geometry = new THREE.BoxGeometry( 200, 200, 200 );
+	            //var texture = THREE.ImageUtils.loadTexture( 'crate.gif' );
+	            //texture.anisotropy = renderer.getMaxAnisotropy();
+	            //var material = new THREE.MeshBasicMaterial( { map: texture } );
+
+                var geometry = new THREE.CylinderGeometry( 10, 5, 50, 8 );
+
+                var material = new THREE.MeshPhongMaterial({
+                    ambient: 0x030303, 
+                    color: 0xffffff, 
+                    specular: 0xffffff, 
+                    shininess: 20, 
+                    shading: THREE.FlatShading 
+                    });
+
+	            var material2 = new THREE.MeshPhongMaterial( { color: 0xffffff, emissive: 0x444444 } );
+
+	            var material3 = new THREE.MeshLambertMaterial( { color: 0xffffff, emissive: 0x333333, shading: THREE.FlatShading } );
+
+
+	            mesh = new THREE.Mesh( geometry, material3 );
+                mesh.rotation.x = 0;
+                mesh.rotation.y = 0;
+                mesh.rotation.z = Math.PI/2;
+	
+	            mesh.position.y=15;
+
+	            scene.add( mesh );
+	
+	            // MIRORR planes
+	            var planeGeo = new THREE.PlaneBufferGeometry( 1000, 1000 );
+	
+	            // MIRORR planes
+	            groundMirror = new THREE.Mirror( renderer, camera, { clipBias: 0.003, textureWidth: WIDTH, textureHeight: HEIGHT, color: 0x777777 } );
+	
+	            var mirrorMesh = new THREE.Mesh( planeGeo, groundMirror.material );
+	            mirrorMesh.add( groundMirror );
+	            mirrorMesh.rotateX( - Math.PI / 2 );
+	            scene.add( mirrorMesh );
+
+	            verticalMirror = new THREE.Mirror( renderer, camera, { clipBias: 0.003, textureWidth: WIDTH, textureHeight: HEIGHT, color:0x889999 } );
+	
+	            var verticalMirrorMesh = new THREE.Mesh( new THREE.PlaneBufferGeometry( 60, 60 ), verticalMirror.material );
+	            verticalMirrorMesh.add( verticalMirror );
+	            verticalMirrorMesh.position.y = 35;
+	            verticalMirrorMesh.position.z = -45;
+	            //scene.add( verticalMirrorMesh );
+
+	            var geometry = new THREE.IcosahedronGeometry( 5, 0 );
+	            var material = new THREE.MeshLambertMaterial( { color: 0xffffff, emissive: 0x333333, shading: THREE.FlatShading } );
+	            smallSphere = new THREE.Mesh( geometry, material );
+	            scene.add(smallSphere);	
+
+
+                var directionalLight = new THREE.DirectionalLight( 0xffffff, .7 );
+                directionalLight.position.set( 0, .1, .1 );
+                scene.add( directionalLight );
+
+                var light = new THREE.AmbientLight( 0x090909 ); // soft white light
+                scene.add( light );
+
+	            texture = THREE.ImageUtils.loadTexture( 'snowflake1.png' );
+	
+	            var numParticles = 100000,
+		            width = 500,
+		            height = particleSystemHeight,
+		            depth = 500,
+		            parameters = {
+			            color: 0xFFFFFF,
+			            height: particleSystemHeight,
+			            radiusX: 2.5,
+			            radiusZ: 2.5,
+			            size: 100,
+			            scale: 4.0,
+			            opacity: 0.4,
+			            speedH: 1.0,
+			            speedV: 1.0
+		            },
+		            systemGeometry = new THREE.Geometry(),
+		            systemMaterial = new THREE.ShaderMaterial({
+			            uniforms: {
+				            color:  { type: 'c', value: new THREE.Color( parameters.color ) },
+				            height: { type: 'f', value: parameters.height },
+				            elapsedTime: { type: 'f', value: 0 },
+				            radiusX: { type: 'f', value: parameters.radiusX },
+				            radiusZ: { type: 'f', value: parameters.radiusZ },
+				            size: { type: 'f', value: parameters.size },
+				            scale: { type: 'f', value: parameters.scale },
+				            opacity: { type: 'f', value: parameters.opacity },
+				            texture: { type: 't', value: texture },
+				            speedH: { type: 'f', value: parameters.speedH },
+				            speedV: { type: 'f', value: parameters.speedV }
+			            },
+			            vertexShader: document.getElementById( 'step07_vs' ).textContent,
+			            fragmentShader: document.getElementById( 'step09_fs' ).textContent,
+			            blending: THREE.AdditiveBlending,
+			            transparent: true,
+			            depthTest: false
+		            });
+             
+	            for( var i = 0; i < numParticles; i++ ) {
+		            var vertex = new THREE.Vector3(
+				            rand( width ),
+				            Math.random() * height,
+				            rand( depth )
+			            );
+
+		            systemGeometry.vertices.push( vertex );
+	            }
+
+	            particleSystem = new THREE.ParticleSystem( systemGeometry, systemMaterial );
+	            particleSystem.position.y = -height/2;
+
+	            scene.add( particleSystem );
+
+	            clock = new THREE.Clock();
+
+	            document.body.appendChild( renderer.domElement );
+
+	            onParametersUpdate = function( v ) {
+		            systemMaterial.uniforms.color.value.set( parameters.color );
+		            systemMaterial.uniforms.height.value = parameters.height;
+		            systemMaterial.uniforms.radiusX.value = parameters.radiusX;
+		            systemMaterial.uniforms.radiusZ.value = parameters.radiusZ;
+		            systemMaterial.uniforms.size.value = parameters.size;
+		            systemMaterial.uniforms.scale.value = parameters.scale;
+		            systemMaterial.uniforms.opacity.value = parameters.opacity;
+		            systemMaterial.uniforms.speedH.value = parameters.speedH;
+		            systemMaterial.uniforms.speedV.value = parameters.speedV;
+	            }
+
+	            controls = new dat.GUI();
+	            controls.close();
+
+	            controls.addColor( parameters, 'color' ).onChange( onParametersUpdate );
+	            controls.add( parameters, 'height', 0, particleSystemHeight * 2.0 ).onChange( onParametersUpdate );
+	            controls.add( parameters, 'radiusX', 0, 10 ).onChange( onParametersUpdate );
+	            controls.add( parameters, 'radiusZ', 0, 10 ).onChange( onParametersUpdate );
+	            controls.add( parameters, 'size', 1, 400 ).onChange( onParametersUpdate );
+	            controls.add( parameters, 'scale', 1, 30 ).onChange( onParametersUpdate );
+	            controls.add( parameters, 'opacity', 0, 1 ).onChange( onParametersUpdate );
+	            controls.add( parameters, 'speedH', 0.1, 3 ).onChange( onParametersUpdate );
+	            controls.add( parameters, 'speedV', 0.1, 3 ).onChange( onParametersUpdate );
+
+	            document.addEventListener( 'mousemove', function( e ) {
+		            var mouseX = e.clientX,
+			            mouseY = e.clientY,
+			            width = window.innerWidth,
+			            halfWidth = width >> 1,
+			            height = window.innerHeight,
+			            halfHeight = height >> 1;
+		
+		            cameraX = cameraRadius * ( mouseX - halfWidth ) / halfWidth;
+		            cameraY = cameraRadius * ( mouseY - halfHeight ) / halfHeight;
+	            }, false );
+
+	            document.addEventListener( 'mousewheel', onMouseWheel, false );
+	            document.addEventListener( 'DOMMouseScroll', onMouseWheel, false );
+
+            }
+
+            function onMouseWheel( e ) {
+	            e.preventDefault();
+	
+	            if( e.wheelDelta ) {
+		            cameraZ += e.wheelDelta * 0.05;
+	            } else if( e.detail ) {
+		            cameraZ += e.detail * 0.5;
+	            }
+            }
+
+            function rand( v ) {
+	            return (v * (Math.random() - 0.5));
+            }
+
+
+            function animate() {
+
+	            requestAnimationFrame( animate );
+
+	            var delta = clock.getDelta(),
+		            elapsedTime = clock.getElapsedTime();
+
+	            particleSystem.material.uniforms.elapsedTime.value = elapsedTime * 10;
+
+	
+	            // render (update) the mirrors
+	            groundMirror.renderWithMirror( verticalMirror );
+	            verticalMirror.renderWithMirror( groundMirror );
+
+
+	            time += 1;
+	
+	            if (time<200){
+		
+	            }else if (time<300){
+		            speed+=.001;
+
+	            }else if (time<400){
+		            speed-=.001;
+
+	            }else{
+		            time=0;
+		            speed=.01;
+	            }
+
+
+	            mesh.rotation.x += 0.0;
+	            mesh.rotation.y += speed;
+	            mesh.rotation.z += 0.0;
+
+	
+	            var timer = Date.now() * .01;
+
+	
+	            smallSphere.position.set(
+		            Math.cos( timer * 0.1 ) * 50,
+		            Math.abs( Math.cos( timer * 0.2 ) ) * 20 + 5,
+		            Math.sin( timer * 0.1 ) * 50
+	            );
+	            smallSphere.rotation.y = ( Math.PI / 2 ) - timer * 0.1;
+	            smallSphere.rotation.z = timer * 0.8;
+
+	            cameraControls.update();
+
+	            renderer.clear();
+	            renderer.render( scene, camera );
+	            stats.update();
+
+            }
+        
+        </script>
+		<script type="x-shader/x-vertex" id="step07_vs">
+
+
+			uniform float radiusX;
+			uniform float radiusZ;
+			uniform float size;
+			uniform float scale;
+			uniform float height;
+			uniform float elapsedTime;
+			uniform float speedH;
+			uniform float speedV;
+
+			void main() {
+				vec3 pos = position;
+				pos.x += cos((elapsedTime + position.z) * 0.25 * speedH) * radiusX;
+
+
+
+				pos.y = mod(pos.y - elapsedTime * speedV, height);
+				pos.z += sin((elapsedTime + position.x) * 0.25 * speedH) * radiusZ;
+
+				vec4 mvPosition = modelViewMatrix * vec4( pos, 1.0 );
+
+				gl_PointSize = size * ( scale / length( mvPosition.xyz ) );
+
+				gl_Position = projectionMatrix * mvPosition;
+			}
+		</script>
+		
+		<script type="x-shader/x-fragment" id="step09_fs">
+			uniform vec3 color;
+			uniform float opacity;
+			uniform sampler2D texture;
+
+			void main() {
+				vec4 texColor = texture2D( texture, gl_PointCoord );
+				gl_FragColor = texColor * vec4( color, opacity );
+			}
+
+		</script>
+
+	</head>
+	<body>
+	</body>
+</html>

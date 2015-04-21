@@ -1,0 +1,226 @@
+<!doctype html>
+<html>
+	<head>
+		<title>Rendering snow with shaders tutorial / 10</title>
+		<style>
+            * {
+	            margin: 0;
+	            padding: 0;
+            }
+
+            body {
+	            background: #000;
+	            overflow: hidden;
+	            color: #fff;
+            }
+
+            #header {
+	            z-index: 10;
+	            position: absolute;
+	            top: 0;
+	            left: 0;
+	            width: 50%;
+	            text-align: center;
+	            color: #fff;
+	            background: rgba( 255, 255, 255, 0.5 );
+	            padding: 5px 0;
+	            text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.85);
+	            font-family: Courier, 'Courier New', mono, sans;
+	            font-weight: bold;
+            }
+	            #header a {
+		            color: #ff0;
+	            }
+
+            canvas {
+	            z-index: 0;
+	            position: absolute;
+	            top: 0;
+	            left: 0;
+            }
+
+            a {
+	            color: #00f;
+            }
+        </style>
+		<script type="text/javascript" src="/lib/three.min.js"></script>
+		<script type="text/javascript" src="/lib/js/libs/dat.gui.min.js"></script>
+		<script src="/lib/js/Mirror.js"></script>
+		<script src="/lib/js/controls/OrbitControls.js"></script>
+		<script src="/lib/js/libs/stats.min.js"></script>
+		<script>
+            //adopted from various examples from three.js and a snow tutorial at http://soledadpenades.com/articles/three-js-tutorials/rendering-snow-with-shaders/7/
+
+            var camera, scene, renderer;
+            var mesh;
+            var stats;
+
+            var verticalMirror, groundMirror;
+
+            // scene size
+            var WIDTH = window.innerWidth;
+            var HEIGHT = window.innerHeight;
+
+            // camera
+            var VIEW_ANGLE = 45;
+            var ASPECT = WIDTH / HEIGHT;
+            var NEAR = 1;
+            var FAR = 500;
+
+            var time = 0;
+            var speed = .01;
+
+            var renderer,
+	            scene,
+	            particleSystemHeight = 500,
+	            clock,
+	            controls,
+	            parameters,
+	            onParametersUpdate,
+	            texture;
+
+            window.onload = function() {
+                init();
+                animate();
+            }
+
+            function init() {
+
+	            renderer = new THREE.WebGLRenderer();
+	            renderer.setSize( window.innerWidth, window.innerHeight );
+	            document.body.appendChild( renderer.domElement );
+
+	            // camera
+	            camera = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR, FAR);
+	            camera.position.set( 0, 75, 160 );
+
+	            cameraControls = new THREE.OrbitControls(camera, renderer.domElement);
+	            cameraControls.target.set( 0, 0, 0);
+	            cameraControls.maxDistance = 400;
+	            cameraControls.minDistance = 10;
+	            cameraControls.update();
+
+	            scene = new THREE.Scene();
+
+                var material = new THREE.MeshLambertMaterial({
+                    color: 0xffffff, 
+                    specular: 0xffffff, 
+                    shading: THREE.FlatShading ,
+                    side: THREE.DoubleSide
+                    });
+	
+                var directionalLight = new THREE.DirectionalLight( 0xffffff, .7 );
+                directionalLight.position.set( 0, .1, .1 );
+                scene.add( directionalLight );
+
+                var light = new THREE.AmbientLight( 0x202020 ); // soft white light
+                scene.add( light );
+
+	            texture = THREE.ImageUtils.loadTexture( 'snowflake1.png' );
+
+                grass = new THREE.Mesh(turf(), material);
+                grass.overdraw = true;
+
+	            scene.add( grass );
+
+	            clock = new THREE.Clock();
+
+	            document.body.appendChild( renderer.domElement );
+
+            }
+
+            function turf(){
+                geometry = new THREE.Geometry();
+                
+                geometry.vertices.push(new THREE.Vector3(1,0,0));
+                geometry.vertices.push(new THREE.Vector3(1,1,0));
+                geometry.vertices.push(new THREE.Vector3(-1,0,0));
+                geometry.vertices.push(new THREE.Vector3(-1,1,0));
+                
+                geometry.vertices.push(new THREE.Vector3(Math.sqrt(3)/2,0,1/2));
+                geometry.vertices.push(new THREE.Vector3(Math.sqrt(3)/2,1,1/2));
+                geometry.vertices.push(new THREE.Vector3(-Math.sqrt(3)/2,0,-1/2));
+                geometry.vertices.push(new THREE.Vector3(-Math.sqrt(3)/2,1,-1/2));
+                
+                geometry.vertices.push(new THREE.Vector3(-Math.sqrt(3)/2,0,1/2));
+                geometry.vertices.push(new THREE.Vector3(-Math.sqrt(3)/2,1,1/2));
+                geometry.vertices.push(new THREE.Vector3(Math.sqrt(3)/2,0,-1/2));
+                geometry.vertices.push(new THREE.Vector3(Math.sqrt(3)/2,1,-1/2));
+
+                geometry.faces.push(new THREE.Face3(0, 1, 2));
+                geometry.faces.push(new THREE.Face3(1, 2, 3));
+               
+                geometry.faces.push(new THREE.Face3(4, 5, 6));
+                geometry.faces.push(new THREE.Face3(5, 6, 7));
+                    
+                geometry.faces.push(new THREE.Face3(8, 9, 10));
+                geometry.faces.push(new THREE.Face3(9, 10, 11));
+
+                geometry.computeFaceNormals();
+                geometry.computeVertexNormals();
+
+                return geometry;
+            }
+
+
+            function rand( v ) {
+	            return (v * (Math.random() - 0.5));
+            }
+
+
+            function animate() {
+
+	            requestAnimationFrame( animate );
+
+	            cameraControls.update();
+
+	            renderer.render( scene, camera );
+
+            }
+        
+        </script>
+		<script type="x-shader/x-vertex" id="step07_vs">
+
+
+			uniform float radiusX;
+			uniform float radiusZ;
+			uniform float size;
+			uniform float scale;
+			uniform float height;
+			uniform float elapsedTime;
+			uniform float speedH;
+			uniform float speedV;
+
+			void main() {
+				vec3 pos = position;
+				pos.x += cos((elapsedTime + position.z) * 0.25 * speedH) * radiusX;
+
+
+
+				pos.y = mod(pos.y - elapsedTime * speedV, height);
+				pos.z += sin((elapsedTime + position.x) * 0.25 * speedH) * radiusZ;
+
+				vec4 mvPosition = modelViewMatrix * vec4( pos, 1.0 );
+
+				gl_PointSize = size * ( scale / length( mvPosition.xyz ) );
+
+				gl_Position = projectionMatrix * mvPosition;
+			}
+		</script>
+		
+		<script type="x-shader/x-fragment" id="step09_fs">
+			uniform vec3 color;
+			uniform float opacity;
+			uniform sampler2D texture;
+
+			void main() {
+				vec4 texColor = texture2D( texture, gl_PointCoord );
+				gl_FragColor = texColor * vec4( color, opacity );
+			}
+
+		</script>
+
+	</head>
+	<body>
+	</body>
+</html>

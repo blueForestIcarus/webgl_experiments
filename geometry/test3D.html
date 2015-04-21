@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<title>three.js webgl - geometry - cube</title>
+		<meta charset="utf-8">
+		<style>test 
+			body {
+				margin: 0px;
+				background-color: #000000;
+				overflow: hidden;
+			}
+		</style>
+	</head>
+	<body>
+
+		<script src="/lib/three.min.js"></script>
+		<script src="/lib/js/Mirror.js"></script>
+		<script src="/lib/js/controls/OrbitControls.js"></script>
+		<script src="/lib/js/libs/stats.min.js"></script>
+
+		<script>
+
+			var camera, scene, renderer;
+			var mesh;
+			var stats;
+			
+			var verticalMirror, groundMirror;
+
+			// scene size
+			var WIDTH = window.innerWidth;
+			var HEIGHT = window.innerHeight;
+
+			// camera
+			var VIEW_ANGLE = 45;
+			var ASPECT = WIDTH / HEIGHT;
+			var NEAR = 1;
+			var FAR = 500;
+			
+			var time = 0;
+			var speed = .01;
+			
+			init();
+			animate();
+
+			function init() {
+			
+				stats = new Stats();
+				stats.domElement.style.position = 'absolute';
+				stats.domElement.style.top = '0px';
+				document.body.appendChild( stats.domElement );
+
+				renderer = new THREE.WebGLRenderer();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				document.body.appendChild( renderer.domElement );
+
+				// camera
+				camera = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR, FAR);
+				camera.position.set( 0, 75, 160 );
+
+				cameraControls = new THREE.OrbitControls(camera, renderer.domElement);
+				cameraControls.target.set( 0, 0, 0);
+				cameraControls.maxDistance = 400;
+				cameraControls.minDistance = 10;
+				cameraControls.update();
+
+				scene = new THREE.Scene();
+
+				var geometry = new THREE.BoxGeometry( 200, 200, 200 );
+
+				//var texture = THREE.ImageUtils.loadTexture( 'crate.gif' );
+				//texture.anisotropy = renderer.getMaxAnisotropy();
+				//var material = new THREE.MeshBasicMaterial( { map: texture } );
+
+                var geometry = new THREE.CylinderGeometry( 10, 5, 50, 8 );
+
+                var material = new THREE.MeshPhongMaterial({
+                    ambient: 0x030303, 
+                    color: 0xffffff, 
+                    specular: 0xffffff, 
+                    shininess: 20, 
+                    shading: THREE.FlatShading 
+                    });
+
+				var material2 = new THREE.MeshPhongMaterial( { color: 0xffffff, emissive: 0x444444 } );
+
+				var material3 = new THREE.MeshLambertMaterial( { color: 0xffffff, emissive: 0x333333, shading: THREE.FlatShading } );
+
+
+				mesh = new THREE.Mesh( geometry, material3 );
+                mesh.rotation.x = 0;
+                mesh.rotation.y = 0;
+                mesh.rotation.z = Math.PI/2;
+				
+				mesh.position.y=15;
+
+				scene.add( mesh );
+				
+				// MIRORR planes
+				var planeGeo = new THREE.PlaneBufferGeometry( 1000, 1000 );
+				
+				// MIRORR planes
+				groundMirror = new THREE.Mirror( renderer, camera, { clipBias: 0.003, textureWidth: WIDTH, textureHeight: HEIGHT, color: 0x777777 } );
+				
+				var mirrorMesh = new THREE.Mesh( planeGeo, groundMirror.material );
+				mirrorMesh.add( groundMirror );
+				mirrorMesh.rotateX( - Math.PI / 2 );
+				scene.add( mirrorMesh );
+
+				verticalMirror = new THREE.Mirror( renderer, camera, { clipBias: 0.003, textureWidth: WIDTH, textureHeight: HEIGHT, color:0x889999 } );
+				
+				var verticalMirrorMesh = new THREE.Mesh( new THREE.PlaneBufferGeometry( 60, 60 ), verticalMirror.material );
+				verticalMirrorMesh.add( verticalMirror );
+				verticalMirrorMesh.position.y = 35;
+				verticalMirrorMesh.position.z = -45;
+				//scene.add( verticalMirrorMesh );
+
+				var geometry = new THREE.IcosahedronGeometry( 5, 0 );
+				var material = new THREE.MeshLambertMaterial( { color: 0xffffff, emissive: 0x333333, shading: THREE.FlatShading } );
+				smallSphere = new THREE.Mesh( geometry, material );
+				scene.add(smallSphere);	
+
+
+                var directionalLight = new THREE.DirectionalLight( 0xffffff, .7 );
+                directionalLight.position.set( 0, .1, .1 );
+                scene.add( directionalLight );
+
+                var light = new THREE.AmbientLight( 0x090909 ); // soft white light
+                scene.add( light );
+
+				window.addEventListener( 'resize', onWindowResize, false );
+
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+
+			function animate() {
+
+				requestAnimationFrame( animate );
+				
+				// render (update) the mirrors
+				groundMirror.renderWithMirror( verticalMirror );
+				//verticalMirror.renderWithMirror( groundMirror );
+
+
+				time += 1;
+				
+				if (time<200){
+					
+				}else if (time<300){
+					speed+=.001;
+
+				}else if (time<400){
+					speed-=.001;
+
+				}else{
+					time=0;
+					speed=.01;
+				}
+
+
+				mesh.rotation.x += 0.0;
+				mesh.rotation.y += speed;
+				mesh.rotation.z += 0.0;
+
+				
+				var timer = Date.now() * .01;
+
+				
+				smallSphere.position.set(
+					Math.cos( timer * 0.1 ) * 50,
+					Math.abs( Math.cos( timer * 0.2 ) ) * 20 + 5,
+					Math.sin( timer * 0.1 ) * 50
+				);
+				smallSphere.rotation.y = ( Math.PI / 2 ) - timer * 0.1;
+				smallSphere.rotation.z = timer * 0.8;
+
+				cameraControls.update();
+
+				renderer.render( scene, camera );
+				stats.update();
+
+
+			}
+
+		</script><canvas width="1680" height="925" style="width: 1680px; height: 925px;"></canvas>
+
+	
+
+
+</body></html>

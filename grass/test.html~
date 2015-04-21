@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<title>three.js webgl - geometry - cube</title>
+		<meta charset="utf-8">
+		<style>
+			body {
+				margin: 0px;
+				background-color: #000000;
+				overflow: hidden;
+                    
+			}
+		</style>
+	</head>
+	<body>
+
+		<script src="/lib/three.min.js"></script>
+		<script src="/lib/js/libs/stats.min.js"></script>
+		<script src="/lib/js/controls/OrbitControls.js"></script>
+        <script src="terrain.js"></script>
+
+		<script>
+			init();
+
+            function init(){
+
+
+                terrain = new Terrain(10);
+                //terrain.createTerrain();
+
+
+                for(z = -2 ; z < 2 ; z = z + 1) {
+                    for(x = -2; x < 2 ; x = x + 1) {
+                        alert(x);
+                        terrain.blocks.push(new Block(10, new THREE.Vector3(100,0,100), 0));
+                    }
+                }
+            }
+
+		</script><canvas width="1680" height="925" style="width: 1680px; height: 925px;"></canvas>
+
+	
+
+
+</body></html>

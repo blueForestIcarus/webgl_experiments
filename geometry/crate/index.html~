@@ -1,0 +1,124 @@
+
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js webgl - geometry - cube</title>
+		<meta charset="utf-8">
+		<style>
+			body {
+				margin: 0px;
+				background-color: #000000;
+				overflow: hidden;
+			}
+		</style>
+	</head>
+	<body>
+
+		<script src="three.min.js"></script>
+		<script src="/lib/js/Mirror.js"></script>
+		<script src="/lib/js/controls/OrbitControls.js"></script>
+
+
+
+		<script>
+
+			var camera, scene, renderer;
+			var mesh;
+
+			// scene size
+			var WIDTH = window.innerWidth;
+			var HEIGHT = window.innerHeight;
+
+			// camera
+			var VIEW_ANGLE = 45;
+			var ASPECT = WIDTH / HEIGHT;
+			var NEAR = 1;
+			var FAR = 500;
+
+			init();
+			animate();
+
+			function init() {
+
+				renderer = new THREE.WebGLRenderer();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				document.body.appendChild( renderer.domElement );
+
+    			var verticalMirror, groundMirror;
+
+				// camera
+				camera = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR, FAR);
+				camera.position.set( 0, 75, 160 );
+
+				cameraControls = new THREE.OrbitControls(camera, renderer.domElement);
+				cameraControls.target.set( 0, 40, 0);
+				cameraControls.maxDistance = 400;
+				cameraControls.minDistance = 10;
+				cameraControls.update();
+
+				scene = new THREE.Scene();
+
+				var geometry = new THREE.BoxGeometry( 50, 50, 50 );
+
+				var texture = THREE.ImageUtils.loadTexture( 'crate.gif' );
+				texture.anisotropy = renderer.getMaxAnisotropy();
+				var material = new THREE.MeshBasicMaterial( { map: texture } );
+
+                var material1 = new THREE.MeshPhongMaterial({
+                    ambient: 0x030303, 
+                    color: 0xffffff, 
+                    specular: 0xffffff, 
+                    shininess: 20, 
+                    shading: THREE.FlatShading 
+                    });
+
+				var material2 = new THREE.MeshPhongMaterial( { color: 0xffffff, emissive: 0x444444 } );
+
+                var material3 = new THREE.MeshLambertMaterial();
+
+
+				mesh = new THREE.Mesh( geometry, material );
+                mesh.rotation.x = 0;
+                mesh.rotation.y = 0;
+                mesh.rotation.z = Math.PI/2;
+
+				scene.add( mesh );
+
+
+                var directionalLight = new THREE.DirectionalLight( 0xffffff, .7 );
+                directionalLight.position.set( 0, .1, .1 );
+                scene.add( directionalLight );
+
+                var light = new THREE.AmbientLight( 0x090909 ); // soft white light
+                scene.add( light );
+
+				window.addEventListener( 'resize', onWindowResize, false );
+
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+
+			function animate() {
+
+				requestAnimationFrame( animate );
+
+				mesh.rotation.x += 0.001;
+				mesh.rotation.y += 0.01;
+				mesh.rotation.z += 0.01;
+
+				renderer.render( scene, camera );
+
+			}
+
+		</script>
+
+	</body>
+</html>
+
