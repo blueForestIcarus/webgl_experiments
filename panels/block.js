@@ -5,6 +5,8 @@ function Terrain (blockScaleConstant, maxLevel, firstMacro) {
     this.firstMacro = firstMacro;//number of minimum size blocks before compression begins = 4^(firstMacro+2)
     this.maxLevel = maxLevel;
     this.blockScaleConstant = blockScaleConstant;//largest level grid size
+	
+	this.generator = new Generator();
 }
 
 Terrain.prototype.initTerrain = function () {
@@ -17,6 +19,8 @@ Terrain.prototype.initTerrain = function () {
     
     for(var index in this.blocks){
         var parent = this.blocks[index];
+		
+		//this is a very inefficient
         while( parent.level > this.firstMacro){
             parent.state = 2;
             parent.generateChildren_recursive(parent.level - 1 - this.firstMacro);
@@ -42,6 +46,41 @@ Terrain.prototype.getHeight = function (x, z) {
     return 0;
 }
 
+Terrain.prototype.generateTerrain = function (block){
+	if(block.state==2){
+		this.generateTerrain(block.children[0]);
+		this.generateTerrain(block.children[1]);
+		this.generateTerrain(block.children[2]);
+		this.generateTerrain(block.children[3]);
+
+		this.computeFromChildren();
+	}else if(block.state==1){
+		this.generator.generate(block);
+	}
+}
+
+function Generator () {
+	this.levels = [];
+}
+
+Generator.prototype.addFunction = function (foo , level){
+	this.levels[level].push(foo);
+}
+
+Generator.prototype.generate = function (block){
+	for(level in levels){
+		block.geometry.vertices.forEach(function (v, i){
+			var x = position.x + v.x;
+			var z = position.z + v.z;
+			var r = Math.sqrt(x*x + z*z);
+
+			for(foo in level){
+				foo();
+			}
+		}
+	}
+}
+
 function Block (scale, position, level, quad, parent){
     this.width = 11;
     this.depth = 11;
@@ -53,7 +92,8 @@ function Block (scale, position, level, quad, parent){
 
     this.geometry = createGridGeometry(this.depth, this.width, this.scale);//will store actual geometry
     this.heightmap = createGridGeometry(this.depth, this.width, this.scale);//will store target values
-    this.mesh = null;
+    this.generateTerrain();
+	this.mesh = null;
 
     this.parent = null;
     this.children = [null, null, null, null];//tr,tl,bl,br (faceing due +X, with +Z to the right)
@@ -99,7 +139,10 @@ Block.prototype.generateChildren_recursive = function (level) {
     }
 }
 
-
+Block.prototype.computeFromChildren = function(){
+	//set heightmap based on children
+	//TODO
+}
 
 Block.prototype.getPointHeight = function (x,z){
     if(this.state == 2){
@@ -163,7 +206,7 @@ function createGridGeometry (depth, width, size) {
             if(x!=0 && d!=0 && x != width-1 && d != depth-1){
                 //debug
                 //geometry.vertices.push(new THREE.Vector3((x + (Math.random() - .5)/2)*size,0,(d + (Math.random() - .5)/2)*size));
-                geometry.vertices.push(new THREE.Vector3(x*size,Math.sin(x/d),d*size));
+                geometry.vertices.push(new THREE.Vector3(x*size,1,d*size));
             }else{
                 geometry.vertices.push(new THREE.Vector3(x*size,0,d*size));
             }        
